@@ -31,25 +31,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // 1. Check if the header exists and starts with "Bearer "
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 2. Extract token and email
         jwt = authHeader.substring(7);
         userEmail = jwtUtil.extractUsername(jwt);
 
-        // 3. If email exists and no user is currently authenticated in this request thread
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // 4. Validate the token
+            // Validate Token
             if (jwtUtil.isTokenValid(jwt, userDetails)) {
 
-                // 5. Create the auth token and set it in the Security Context (Amnesia resolved for this request)
+                //Make and put token in security context.
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,

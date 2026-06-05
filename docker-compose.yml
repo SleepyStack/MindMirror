@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # 1. The Database Service
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: mindmirror-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+      POSTGRES_DB: mindmirrordb
+    ports:
+      - "5432:5432" # map to local machine
+    volumes:
+      - postgres-data:/var/lib/postgresql/data # Persists DB data always
+    healthcheck:
+      # Ensures Postgres is fully booted before starting the Spring App
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. The Spring Boot Service
+  backend-app:
+    build: .
+    container_name: mindmirror-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      # Synced with the postgres-db service credentials
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/mindmirrordb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345
+
+volumes:
+  # Declares the named volume used by Postgres
+  postgres-data:

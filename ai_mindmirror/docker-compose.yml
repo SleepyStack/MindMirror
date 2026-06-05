@@ -37,6 +37,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=12345
       - JWT_SECRET=dpqgUlBNoisndcUjkLsab0LDSrZuL54UGX9cRTQxkys
       - JWT_EXPIRATION=86400000
+      - TRUGEN_API_KEY=${TRUGEN_API_KEY}
+      - TRUGEN_AGENT_ID=${TRUGEN_AGENT_ID}
 
 volumes:
   # Declares the named volume used by Postgres

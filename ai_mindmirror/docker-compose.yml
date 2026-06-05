@@ -39,7 +39,8 @@ services:
       - JWT_EXPIRATION=86400000
       - TRUGEN_API_KEY=${TRUGEN_API_KEY}
       - TRUGEN_AGENT_ID=${TRUGEN_AGENT_ID}
+      - WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN}
 
 volumes:
-  # Declares the named volume used by Postgres
+  # Declares the name d volume used by Postgres
   postgres-data:

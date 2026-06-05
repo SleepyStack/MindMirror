@@ -17,6 +17,7 @@ public class SessionService {
 
     private final SessionHistoryRepository sessionHistoryRepository;
     private final UserRepository userRepository;
+    private final TrugenApiService trugenApiService;
 
     // Your production system prompt
     private static final String BASE_SYSTEM_PROMPT = """
@@ -273,10 +274,9 @@ public class SessionService {
 
         // Stitch the remaining styling, limitations, and crisis parameters back onto the bottom
         promptBuilder.append(SYSTEM_PROMPT_FOOTER);
-
         String finalCompiledPrompt = promptBuilder.toString();
 
-        return "https://api.trugen.ai/v1/stream/mock-session-xyz-" + userId;
+        return trugenApiService.createConversationSession(userId, finalCompiledPrompt);
     }
     public void saveSessionWebhook(Long userId, TrugenWebhookRequest payload) {
         User user = userRepository.findById(userId)

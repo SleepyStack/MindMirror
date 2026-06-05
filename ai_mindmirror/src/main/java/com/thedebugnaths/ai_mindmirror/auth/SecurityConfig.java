@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/webhook/**").permitAll()
+                        .requestMatchers("/api/health", "/actuator/health", "/actuator/**").permitAll()
                         .anyRequest().authenticated() // Everything else requires a valid JWT
                 )
                 .exceptionHandling(exception -> exception

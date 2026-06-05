@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/webhook/**").permitAll()
                         .anyRequest().authenticated() // Everything else requires a valid JWT
                 )
                 .exceptionHandling(exception -> exception

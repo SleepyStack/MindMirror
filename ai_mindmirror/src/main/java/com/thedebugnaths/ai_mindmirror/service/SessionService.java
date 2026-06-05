@@ -1,7 +1,9 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
+import com.thedebugnaths.ai_mindmirror.dto.TrugenWebhookRequest;
 import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
+import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -275,5 +277,27 @@ public class SessionService {
         String finalCompiledPrompt = promptBuilder.toString();
 
         return "https://api.trugen.ai/v1/stream/mock-session-xyz-" + userId;
+    }
+    public void saveSessionWebhook(Long userId, TrugenWebhookRequest payload) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        SessionHistory history = new SessionHistory();
+        history.setUser(user);
+        history.setSummaryText(payload.summary());
+        history.setMainTopic(payload.mainTopic());
+        history.setEmotionStart(payload.emotionStart());
+        history.setEmotionEnd(payload.emotionEnd());
+        history.setActionStep(payload.actionStep());
+
+        sessionHistoryRepository.save(history);
+    }
+
+    public List<SessionHistory> getUserDashboardHistory(String email) {
+        // Fetch the user using the email extracted from the JWT token
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return sessionHistoryRepository.findAllByUserOrderByCreatedAtDesc(user);
     }
 }

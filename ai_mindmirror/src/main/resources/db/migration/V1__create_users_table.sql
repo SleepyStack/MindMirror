@@ -11,7 +11,7 @@ INSERT INTO users(username, email, password, created_at, updated_at)
 VALUES (
         'admin',
         'admin@mindmirror.com',
-        '$2a$10$R7MvEGEc/F6OaefzBvSSTuN7r1A02v6FhIqN8XVE9aU0Vj6hPZbe2',
+        '$2a$10$ZjMh8g3h4.QTXXjRpXREhO/xpSIhx9Ss4o5on6Ldc7Q4ut5hY2Rgi',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
        )

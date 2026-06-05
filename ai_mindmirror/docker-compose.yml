@@ -22,7 +22,9 @@ services:
 
   # 2. The Spring Boot Service
   backend-app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: mindmirror-app
     ports:
       - "8080:8080"
@@ -30,10 +32,11 @@ services:
       postgres-db:
         condition: service_healthy
     environment:
-      # Synced with the postgres-db service credentials
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/mindmirrordb
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=12345
+      - JWT_SECRET=dpqgUlBNoisndcUjkLsab0LDSrZuL54UGX9cRTQxkys
+      - JWT_EXPIRATION=86400000
 
 volumes:
   # Declares the named volume used by Postgres

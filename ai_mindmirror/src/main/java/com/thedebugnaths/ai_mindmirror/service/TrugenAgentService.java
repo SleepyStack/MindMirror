@@ -3,6 +3,7 @@ package com.thedebugnaths.ai_mindmirror.service;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.*; // Ensure these DTOs are in this package
 import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
+import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -236,6 +237,12 @@ public class TrugenAgentService {
         
         ---
         
+        ## Session Closing & Summary Extraction (CRITICAL)
+        When the user indicates they are ready to end the session, or you are saying your final goodbye, you MUST execute the `save_session_summary` tool. 
+        You use this tool to log the conversation metrics to the database. Do not end the call without executing this tool to save the summary, main topic, starting/ending emotions, and action step.
+        
+        ---
+        
         ## Ultimate Goal
         The user should leave the conversation feeling:
         * heard
@@ -263,7 +270,7 @@ public class TrugenAgentService {
     public String createEphemeralAgentForUser(Long userId) {
         // Fetch User and History
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         List<SessionHistory> pastSessions = sessionHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
 
         // Build the Dynamic System Prompt
@@ -297,7 +304,48 @@ public class TrugenAgentService {
                 new KnowledgeBaseRef("77952c92-09c2-4c51-92f2-41e44be2c1ae", "Mind Mirror Behavioral Patterns")
         );
 
-        // Assemble the Trugen Payload
+        // --- SUMMARY TOOL SCHEMA ---
+        Map<String, Object> summaryProperties = Map.of(
+                "summaryText", Map.of(
+                        "type", "string",
+                        "description", "A 2-3 sentence summary of the user's core struggles and discussion."
+                ),
+                "mainTopic", Map.of(
+                        "type", "string",
+                        "description", "The primary topic of conversation (e.g., 'Project Stress', 'Career Anxiety')."
+                ),
+                "emotionStart", Map.of(
+                        "type", "string",
+                        "description", "The user's primary emotion at the beginning of the call."
+                ),
+                "emotionEnd", Map.of(
+                        "type", "string",
+                        "description", "The user's primary emotion at the end of the call."
+                ),
+                "actionStep", Map.of(
+                        "type", "string",
+                        "description", "One concrete, actionable step the user agreed to take."
+                )
+        );
+
+        Map<String, Object> summaryParameters = Map.of(
+                "type", "object",
+                "properties", summaryProperties,
+                "required", List.of("summaryText", "mainTopic", "emotionStart", "emotionEnd", "actionStep")
+        );
+
+        List<ToolConfig> agentTools = List.of(
+                new ToolConfig(
+                        "function",
+                        new FunctionConfig(
+                                "save_session_summary",
+                                "MUST be called at the very end of the session to save the final conversation analytics to the database before hanging up.",
+                                summaryParameters
+                        )
+                )
+        );
+
+        // --- ASSEMBLE THE PAYLOAD ---
         TrugenAgentRequest requestBody = new TrugenAgentRequest(
                 "Mind Mirror Session - User " + userId,
                 compiledPrompt,
@@ -305,7 +353,7 @@ public class TrugenAgentService {
                 kbs,
                 true,
                 dynamicCallbackUrl,
-                List.of("participant_left", "action_found"),
+                List.of("participant_left", "action_found", "tool_calls"), // Added tool_calls so Trugen forwards it!
                 List.of(new AvatarConfig(
                         "665a1170",
                         new AvatarSettings(
@@ -321,7 +369,8 @@ public class TrugenAgentService {
                         new MessageGroup(10, List.of("We have a few minutes left in our session.")),
                         new MessageGroup(300, List.of("Our session has wrapped up. Take care of yourself!")),
                         new MessageGroup(10, List.of("We are wrapping things up shortly."))
-                ))
+                )),
+                agentTools
         );
 
         // Execute Provisioning

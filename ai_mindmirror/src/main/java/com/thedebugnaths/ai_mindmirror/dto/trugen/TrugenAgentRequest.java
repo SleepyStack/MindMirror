@@ -10,5 +10,6 @@ public record TrugenAgentRequest(
         boolean record,
         String callback_url,
         List<String> callback_events,
-        List<AvatarConfig> avatars
+        List<AvatarConfig> avatars,
+        List<ToolConfig> tools
 ) {}

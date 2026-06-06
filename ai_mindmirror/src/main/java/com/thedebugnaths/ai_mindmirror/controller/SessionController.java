@@ -35,9 +35,7 @@ public class SessionController {
 
     @GetMapping("/history")
     public ResponseEntity<List<SessionHistory>> getHistory(Authentication authentication) {
-
         String userEmail = authentication.getName();
-
         return ResponseEntity.ok(sessionService.getUserDashboardHistory(userEmail));
     }
 }

@@ -1,6 +1,6 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
-import com.thedebugnaths.ai_mindmirror.dto.TrugenWebhookRequest;
+import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenWebhookRequest;
 import com.thedebugnaths.ai_mindmirror.service.WebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,14 +16,14 @@ public class WebhookController {
 
     @PostMapping("/trugen")
     public ResponseEntity<String> handleTrugenWebhook(
-            @RequestHeader(value = "X-Webhook-Secret", required = false) String incomingSecret,
+            @RequestParam("userId") Long userId,
+            @RequestParam("secret") String secret,
             @RequestBody TrugenWebhookRequest payload) {
-
-        // Pass the ID from AI's payload
-        boolean isAuthorized = webhookService.processTrugenWebhook(incomingSecret, payload.userId(), payload);
+        boolean isAuthorized = webhookService.processTrugenWebhook(secret, userId, payload);
 
         if (!isAuthorized) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid webhook signature");
+            System.out.println("Unauthorized webhook attempt blocked!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid webhook signature");
         }
 
         return ResponseEntity.ok("Webhook processed successfully");

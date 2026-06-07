@@ -31,4 +31,7 @@ public class User {
         this.email = email;
         this.password = password;
     }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role = Role.USER;
 }

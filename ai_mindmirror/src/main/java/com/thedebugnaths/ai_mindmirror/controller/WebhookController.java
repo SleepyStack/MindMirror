@@ -1,5 +1,6 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
+import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenLifecycleRequest;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenWebhookRequest;
 import com.thedebugnaths.ai_mindmirror.service.WebhookService;
 import lombok.RequiredArgsConstructor;
@@ -16,42 +17,39 @@ public class WebhookController {
 
     private final WebhookService webhookService;
 
-    // 1. Catches standard Agent lifecycle event
+    // Endpoint 1: Catches Agent lifecycle events (participant_left -> cleanup)
     @PostMapping
     public ResponseEntity<Object> handleLifecycleWebhook(
             @RequestParam("userId") Long userId,
             @RequestParam(value = "secret", required = false) String secret,
-            @RequestBody TrugenWebhookRequest payload) {
-
-        boolean isAuthorized = webhookService.processTrugenWebhook(secret, userId, payload);
+            @RequestBody TrugenLifecycleRequest payload) {
+        boolean isAuthorized = webhookService.processLifecycleWebhook(secret, userId, payload);
 
         if (!isAuthorized) {
-            System.out.println("Unauthorized lifecycle webhook attempt blocked!");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid webhook signature"));
+            System.out.println("Unauthorized lifecycle webhook blocked.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid signature"));
         }
 
-        return ResponseEntity.ok(Map.of("status", "Lifecycle event processed"));
+        return ResponseEntity.ok(Map.of("status", "Lifecycle cleanup executed"));
     }
 
-    // 2. Catches native Tool Execution data payload
+    // Endpoint 2: Catches native Tool Execution data payload
     @PostMapping("/tool")
     public ResponseEntity<Object> handleToolExecution(
             @RequestParam("userId") Long userId,
             @RequestParam(value = "secret", required = false) String querySecret,
             @RequestHeader(value = "X-Webhook-Secret", required = false) String headerSecret,
-            @RequestBody TrugenWebhookRequest payload) {
+            @RequestBody TrugenWebhookRequest payload) { // <-- Keeps old TrugenWebhookRequest
 
-        // Fallback check: Use header if present, otherwise fall back to query param
         String secret = (headerSecret != null) ? headerSecret : querySecret;
 
-        boolean isAuthorized = webhookService.processTrugenWebhook(secret, userId, payload);
+        boolean isAuthorized = webhookService.processToolWebhook(secret, userId, payload);
 
         if (!isAuthorized) {
-            System.out.println("Unauthorized tool webhook attempt blocked!");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid webhook signature"));
+            System.out.println("Unauthorized tool webhook blocked.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid signature"));
         }
 
-        // Return a JSON success message that Trugen can feed back to the LLM
-        return ResponseEntity.ok(Map.of("result", "Summary successfully saved to database."));
+        return ResponseEntity.ok(Map.of("result", "Summary processed successfully."));
     }
 }

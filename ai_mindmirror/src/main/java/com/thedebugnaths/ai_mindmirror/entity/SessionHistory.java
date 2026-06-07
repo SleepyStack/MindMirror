@@ -34,4 +34,16 @@ public class SessionHistory {
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "agent_id")
+    private String agentId;
+
+    @Column(name = "tool_id")
+    private String toolId;
+
+    @Column(name = "conversation_id")
+    private String conversationId;
+
+    @Column(name = "status")
+    private String status = "ACTIVE";
 }

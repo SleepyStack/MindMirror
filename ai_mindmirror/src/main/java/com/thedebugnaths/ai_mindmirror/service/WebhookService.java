@@ -15,12 +15,17 @@ public class WebhookService {
     private String expectedSecret;
 
     public boolean processTrugenWebhook(String incomingSecret, Long userId, TrugenWebhookRequest payload) {
-
         if (incomingSecret == null || !incomingSecret.equals(expectedSecret)) {
-            return false; // Validation failed
+            return false;
         }
-        sessionService.saveSessionWebhook(userId, payload);
 
+        // Prevent DB failures if a lifecycle event (like participant_left) maps fields to null
+        if (payload.summary() == null && payload.mainTopic() == null) {
+            System.out.println("Lifecycle event captured for user: " + userId + ". Skipping database persistence.");
+            return true;
+        }
+
+        sessionService.saveSessionWebhook(userId, payload);
         return true;
     }
 }

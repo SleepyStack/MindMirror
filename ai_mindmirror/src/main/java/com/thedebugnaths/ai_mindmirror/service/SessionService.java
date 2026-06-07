@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -18,30 +17,13 @@ public class SessionService {
 
     private final SessionHistoryRepository sessionHistoryRepository;
     private final UserRepository userRepository;
-    private final TrugenAgentService trugenAgentService; // Inject the new service
+    private final TrugenAgentService trugenAgentService;
 
     public String initializeTrugenSession(Long userId) {
-        // The AgentService reads the DB history, builds the prompt, and creates the agent
         String agentId = trugenAgentService.createEphemeralAgentForUser(userId);
-
         return "https://app.trugen.ai/embed/" + agentId;
     }
 
-    public void saveSessionWebhook(Long userId, Map<String, Object> payload) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        SessionHistory history = new SessionHistory();
-        history.setUser(user);
-
-        history.setSummaryText((String) payload.get("summary"));
-        history.setMainTopic((String) payload.get("mainTopic"));
-        history.setEmotionStart((String) payload.get("emotionStart"));
-        history.setEmotionEnd((String) payload.get("emotionEnd"));
-        history.setActionStep((String) payload.get("actionStep"));
-
-        sessionHistoryRepository.save(history);
-    }
     public void saveSessionWebhook(Long userId, TrugenWebhookRequest payload) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -49,7 +31,6 @@ public class SessionService {
         SessionHistory history = new SessionHistory();
         history.setUser(user);
 
-        // Using the DTO record accessors instead of Map.get()
         history.setSummaryText(payload.summary());
         history.setMainTopic(payload.mainTopic());
         history.setEmotionStart(payload.emotionStart());
@@ -58,6 +39,7 @@ public class SessionService {
 
         sessionHistoryRepository.save(history);
     }
+
     public List<SessionHistory> getUserDashboardHistory(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));

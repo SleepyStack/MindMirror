@@ -1,12 +1,13 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
-import com.thedebugnaths.ai_mindmirror.dto.trugen.*; // Ensure these DTOs are in this package
+import com.thedebugnaths.ai_mindmirror.dto.trugen.*;
 import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -268,12 +269,12 @@ public class TrugenAgentService {
     }
 
     public String createEphemeralAgentForUser(Long userId) {
-        // Fetch User and History
+        // 1. Fetch User and History
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         List<SessionHistory> pastSessions = sessionHistoryRepository.findTop3ByUserOrderByCreatedAtDesc(user);
 
-        // Build the Dynamic System Prompt
+        // 2. Build the Dynamic System Prompt
         StringBuilder promptBuilder = new StringBuilder(BASE_SYSTEM_PROMPT);
 
         if (pastSessions.isEmpty()) {
@@ -297,6 +298,10 @@ public class TrugenAgentService {
         promptBuilder.append(SYSTEM_PROMPT_FOOTER);
         String compiledPrompt = promptBuilder.toString();
 
+        // 3. Dynamically Provision the Tool for this Call Instance
+        String toolId = provisionSessionSummaryTool(userId);
+
+        // 4. Assemble the Agent Config Requirements
         String dynamicCallbackUrl = String.format("%s/api/webhook/trugen?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
 
         List<KnowledgeBaseRef> kbs = List.of(
@@ -304,28 +309,54 @@ public class TrugenAgentService {
                 new KnowledgeBaseRef("77952c92-09c2-4c51-92f2-41e44be2c1ae", "Mind Mirror Behavioral Patterns")
         );
 
-        // --- SUMMARY TOOL SCHEMA ---
+        TrugenAgentRequest requestBody = new TrugenAgentRequest(
+                "Mind Mirror Session - User " + userId,
+                compiledPrompt,
+                new AgentConfig(240, new MemoryConfig(false, "")),
+                kbs,
+                true,
+                dynamicCallbackUrl,
+                List.of("participant_left"),
+                List.of(new AvatarConfig(
+                        "665a1170",
+                        new AvatarSettings(
+                                new LlmConfig("gemini-3.1-pro-preview", "google"),
+                                new SttConfig("flux-general-en", "deepgram", 0.3, 0.4),
+                                new TtsConfig("eleven_turbo_v2_5", "elevenlabs", "FGY2WhTYpPnrIDTdsKH5")
+                        ),
+                        "Mind Mirror",
+                        compiledPrompt,
+                        "Providing empathetic emotional support.",
+                        new IdleTimeout(30, List.of("Take your time. There's no rush.", "I'm right here with you.")),
+                        new MessageGroup(2, List.of("Hi, I'm Mind Mirror, How are you doing today?")),
+                        new MessageGroup(10, List.of("We have a few minutes left in our session.")),
+                        new MessageGroup(300, List.of("Our session has wrapped up. Take care of yourself!")),
+                        new MessageGroup(10, List.of("We are wrapping things up shortly."))
+                )),
+                List.of(new TrugenToolReference(toolId, "save_session_summary"))
+        );
+
+        // Execute Agent Provisioning
+        Map<String, Object> response = restClient.post()
+                .uri("/agent")
+                .body(requestBody)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        if (response != null && response.containsKey("id")) {
+            return response.get("id").toString();
+        }
+
+        throw new RuntimeException("Failed to retrieve operational agent ID from Trugen cluster.");
+    }
+
+    private String provisionSessionSummaryTool(Long userId) {
         Map<String, Object> summaryProperties = Map.of(
-                "summaryText", Map.of(
-                        "type", "string",
-                        "description", "A 2-3 sentence summary of the user's core struggles and discussion."
-                ),
-                "mainTopic", Map.of(
-                        "type", "string",
-                        "description", "The primary topic of conversation (e.g., 'Project Stress', 'Career Anxiety')."
-                ),
-                "emotionStart", Map.of(
-                        "type", "string",
-                        "description", "The user's primary emotion at the beginning of the call."
-                ),
-                "emotionEnd", Map.of(
-                        "type", "string",
-                        "description", "The user's primary emotion at the end of the call."
-                ),
-                "actionStep", Map.of(
-                        "type", "string",
-                        "description", "One concrete, actionable step the user agreed to take."
-                )
+                "summaryText", Map.of("type", "string", "description", "A 2-3 sentence summary of the user's core struggles."),
+                "mainTopic", Map.of("type", "string", "description", "The primary topic of conversation (e.g., 'Project Stress')."),
+                "emotionStart", Map.of("type", "string", "description", "The user's primary emotion at the beginning of the call."),
+                "emotionEnd", Map.of("type", "string", "description", "The user's primary emotion at the end of the call."),
+                "actionStep", Map.of("type", "string", "description", "One concrete, actionable step the user agreed to take.")
         );
 
         Map<String, Object> summaryParameters = Map.of(
@@ -334,56 +365,44 @@ public class TrugenAgentService {
                 "required", List.of("summaryText", "mainTopic", "emotionStart", "emotionEnd", "actionStep")
         );
 
-        List<ToolConfig> agentTools = List.of(
-                new ToolConfig(
-                        "function",
-                        new FunctionConfig(
-                                "save_session_summary",
-                                "MUST be called at the very end of the session to save the final conversation analytics to the database before hanging up.",
-                                summaryParameters
-                        )
+        ToolSchema schema = new ToolSchema(
+                "function",
+                "save_session_summary",
+                "MUST be called at the very end of the session to save the final conversation analytics to the database before hanging up.",
+                summaryParameters
+        );
+
+        // Force secret to pass into both headers and query string for foolproof auth fallback
+        String executionUrl = String.format("%s/api/webhook/trugen/tool?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
+        RequestConfig requestConfig = new RequestConfig(
+                "POST",
+                executionUrl,
+                Map.of(
+                        "Content-Type", "application/json",
+                        "X-Webhook-Secret", webhookSecret
                 )
         );
 
-        // --- ASSEMBLE THE PAYLOAD ---
-        TrugenAgentRequest requestBody = new TrugenAgentRequest(
-                "Mind Mirror Session - User " + userId,
-                compiledPrompt,
-                new AgentConfig(240, new MemoryConfig(false, "")),
-                kbs,
-                true,
-                dynamicCallbackUrl,
-                List.of("participant_left", "action_found", "tool_calls"), // Added tool_calls so Trugen forwards it!
-                List.of(new AvatarConfig(
-                        "665a1170",
-                        new AvatarSettings(
-                                new LlmConfig("meta-llama/llama-4-maverick-17b-128e-instruct", "groq"),
-                                new SttConfig("flux-general-en", "deepgram", 0.3, 0.4),
-                                new TtsConfig("eleven_turbo_v2_5", "elevenlabs", "ZUrEGyu8GFMwnHbvLhv2")
-                        ),
-                        "Mind Mirror",
-                        compiledPrompt,
-                        "Providing empathetic emotional support.",
-                        new IdleTimeout(30, List.of("Take your time. There's no rush.", "I'm right here with you.")),
-                        new MessageGroup(2, List.of("Hi, I'm glad you're here. How are you doing today?")),
-                        new MessageGroup(10, List.of("We have a few minutes left in our session.")),
-                        new MessageGroup(300, List.of("Our session has wrapped up. Take care of yourself!")),
-                        new MessageGroup(10, List.of("We are wrapping things up shortly."))
-                )),
-                agentTools
+        TrugenToolCreateRequest toolPayload = new TrugenToolCreateRequest(
+                "tool.api",
+                schema,
+                requestConfig,
+                Map.of(
+                        "on_start", Map.of("message", "Processing and saving your session analytics..."),
+                        "on_success", Map.of("message", "Your summary has been processed successfully.")
+                )
         );
 
-        // Execute Provisioning
-        Map<String, Object> response = restClient.post()
-                .uri("/agent")
-                .body(requestBody)
+        Map<String, Object> toolResponse = restClient.post()
+                .uri("/tool")
+                .body(toolPayload)
                 .retrieve()
-                .body(Map.class);
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
-        if (response != null && response.containsKey("id")) {
-            return response.get("id").toString();
+        if (toolResponse != null && toolResponse.containsKey("id")) {
+            return toolResponse.get("id").toString();
         }
 
-        throw new RuntimeException("Failed to retrieve operational agent ID from Trugen cluster.");
+        throw new RuntimeException("Failed to register dynamic tool definitions with Trugen cluster.");
     }
 }

@@ -1,9 +1,9 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
+import com.thedebugnaths.ai_mindmirror.dto.SessionHistoryResponse;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.AgentProvisionResult;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenLifecycleRequest;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenWebhookRequest;
-
 import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
@@ -21,6 +21,7 @@ public class SessionService {
     private final SessionHistoryRepository sessionHistoryRepository;
     private final UserRepository userRepository;
     private final TrugenAgentService trugenAgentService;
+    private final TranscriptService transcriptService;
 
     public String initializeTrugenSession(Long userId) {
         User user = userRepository.findById(userId)
@@ -53,6 +54,7 @@ public class SessionService {
 
         System.out.println("Executing cloud asset cleanup for User ID: " + userId);
 
+        // 1. Clean up ephemeral remote infrastructure resources
         if (activeSession.getAgentId() != null) {
             trugenAgentService.deleteAgent(activeSession.getAgentId());
         }
@@ -60,9 +62,18 @@ public class SessionService {
             trugenAgentService.deleteTool(activeSession.getToolId());
         }
 
+        // 2. Map conversation identity and fire off the JSONB transcript sync instantly
         if (payload != null && payload.conversationId() != null) {
-            activeSession.setConversationId(payload.conversationId());
-            System.out.println("Saved conversation ID: " + payload.conversationId());
+            String conversationId = payload.conversationId();
+            activeSession.setConversationId(conversationId);
+            System.out.println("Saved conversation ID: " + conversationId);
+
+            try {
+                // Fetch full logs and persist natively as JSONB to Postgres
+                transcriptService.fetchAndSaveTranscript(conversationId, userId);
+            } catch (Exception e) {
+                System.err.println("[SESSION-SERVICE] Transcript archiving encountered a non-blocking fault: " + e.getMessage());
+            }
         }
 
         activeSession.setStatus("COMPLETED");
@@ -94,10 +105,13 @@ public class SessionService {
         sessionHistoryRepository.save(activeSession);
     }
 
-    public List<SessionHistory> getUserDashboardHistory(String email) {
+    public List<SessionHistoryResponse> getUserDashboardHistory(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return sessionHistoryRepository.findAllByUserOrderByCreatedAtDesc(user);
+        return sessionHistoryRepository.findAllByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(SessionHistoryResponse::fromEntity)
+                .toList();
     }
 }

@@ -12,4 +12,5 @@ public interface SessionHistoryRepository extends JpaRepository<SessionHistory, 
     List<SessionHistory> findAllByUserOrderByCreatedAtDesc(User user);
     List<SessionHistory> findTop3ByUserOrderByCreatedAtDesc(User user);
     Optional<SessionHistory> findFirstByUserAndStatusOrderByIdDesc(User user, String status);
+    List<SessionHistory> findTop3ByUserAndStatusOrderByCreatedAtDesc(User user, String status);
 }

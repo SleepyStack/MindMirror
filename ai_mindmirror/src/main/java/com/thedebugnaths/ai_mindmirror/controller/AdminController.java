@@ -4,6 +4,8 @@ import com.thedebugnaths.ai_mindmirror.entity.Role;
 import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
+import com.thedebugnaths.ai_mindmirror.service.TrugenAgentService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,15 +14,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
+@RequiredArgsConstructor
 public class AdminController {
 
     private final UserRepository userRepository;
     private final SessionHistoryRepository sessionHistoryRepository;
-
-    public AdminController(UserRepository userRepository, SessionHistoryRepository sessionHistoryRepository) {
-        this.userRepository = userRepository;
-        this.sessionHistoryRepository = sessionHistoryRepository;
-    }
+    private final TrugenAgentService trugenAgentService;
 
     @GetMapping("/metrics")
     public ResponseEntity<?> getSystemMetrics(@RequestAttribute("authenticatedUser") User caller) {

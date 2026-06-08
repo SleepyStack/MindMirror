@@ -14,6 +14,18 @@
 Adafruit_SH1106G display(128, 64, &Wire, -1);
 Adafruit_NeoPixel ring(NUMPIXELS, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
 
+int breathCycles = 0;
+bool breathingFinished = false;
+float currentR = 80;
+float currentG = 80;
+float currentB = 80;
+
+float targetR = 80;
+float targetG = 80;
+float targetB = 80;
+unsigned long completionTimer = 0;
+bool showingGoodJob = false;
+
 enum Emotion {
   NEUTRAL,
   HAPPY,
@@ -73,6 +85,16 @@ void setup() {
 
 void loop() {
 
+  if (showingGoodJob &&
+    millis() - completionTimer >= 2000) {
+
+  showingGoodJob = false;
+
+  currentEmotion = CALM;
+
+  drawFace();
+}
+
   readSerial();
 
   updateBlink();
@@ -126,7 +148,8 @@ void readSerial() {
         currentEmotion == ANXIOUS ||
         currentEmotion == DEPRESSED
       )) {
-
+    breathCycles = 0;
+    breathingFinished = false;
     breathState = BREATH_IN;
     breathTimer = millis();
   }
@@ -162,6 +185,9 @@ bool breathingMode() {
 }
 
 void updateBreathing() {
+
+  if (breathingFinished)
+  return;
 
   if (!breathingMode()) {
 
@@ -212,9 +238,26 @@ void updateBreathing() {
 
       if (now - breathTimer >= exhaleTime) {
 
-        breathState = BREATH_IN;
-        breathTimer = now;
-        drawFace();
+        breathCycles++;
+
+if(breathCycles >= 3) {
+
+  breathingFinished = true;
+
+  showingGoodJob = true;
+  completionTimer = millis();
+
+  digitalWrite(INHALE_PIN, LOW);
+  digitalWrite(EXHALE_PIN, LOW);
+
+  drawFace();
+} else {
+
+  breathState = BREATH_IN;
+  breathTimer = now;
+
+  drawFace();
+}
       }
 
       break;
@@ -245,6 +288,20 @@ void drawEyesNormal() {
 void drawFace() {
 
   display.clearDisplay();
+  if (showingGoodJob) {
+
+  display.setTextSize(2);
+
+  display.setCursor(18,12);
+  display.setTextColor(SH110X_WHITE);
+  display.print("GOOD");
+
+  display.setCursor(24,36);
+  display.print("JOB!");
+
+  display.display();
+  return;
+}
 
   if (breathingMode()) {
 
@@ -353,36 +410,63 @@ void updateNeoPixels() {
 
   lastUpdate = millis();
 
-  uint8_t r=0,g=0,b=0;
 
   switch(currentEmotion) {
 
-    case HAPPY:
-      r=255; g=180; b=0;
-      break;
+  case HAPPY:
+    targetR=255;
+    targetG=180;
+    targetB=0;
+    break;
 
-    case CALM:
-      r=0; g=100; b=255;
-      break;
+  case CALM:
+    targetR=0;
+    targetG=100;
+    targetB=255;
+    break;
 
-    case SAD:
-      r=0; g=30; b=255;
-      break;
+  case SAD:
+    targetR=0;
+    targetG=30;
+    targetB=255;
+    break;
 
-    case ANXIOUS:
-      r=255; g=80; b=0;
-      break;
+  case ANXIOUS:
+    targetR=255;
+    targetG=80;
+    targetB=0;
+    break;
 
-    case DEPRESSED:
-      r=80; g=0; b=120;
-      break;
+  case DEPRESSED:
+    targetR=80;
+    targetG=0;
+    targetB=120;
+    break;
 
-    default:
-      r=80; g=80; b=80;
-      break;
-  }
+  default:
+    targetR=80;
+    targetG=80;
+    targetB=80;
+    break;
+}
+currentR += (targetR - currentR) * 0.08;
+currentG += (targetG - currentG) * 0.08;
+currentB += (targetB - currentB) * 0.08;
+
+uint8_t r = (uint8_t)currentR;
+uint8_t g = (uint8_t)currentG;
+uint8_t b = (uint8_t)currentB;
 
   ring.clear();
+  if (breathingFinished) {
+
+  for(int i=0; i<NUMPIXELS; i++) {
+    ring.setPixelColor(i, ring.Color(r,g,b));
+  }
+
+  ring.show();
+  return;
+}
 
   if (!breathingMode()) {
 
@@ -395,7 +479,10 @@ void updateNeoPixels() {
   }
 
   unsigned long elapsed;
+  unsigned long now = millis();
   int ledsLit = 0;
+  float progress = 0.0;
+
 
   switch(breathState) {
 
@@ -404,22 +491,37 @@ void updateNeoPixels() {
     //////////////////////////////////////////////////////
     case BREATH_IN:
 
-      elapsed = millis() - breathTimer;
+  progress =
+    (float)(millis() - breathTimer) /
+    inhaleTime;
 
-      ledsLit =
-        map(
-          elapsed,
-          0,
-          inhaleTime,
-          0,
-          NUMPIXELS
-        );
+  progress = constrain(progress, 0.0, 1.0);
 
-      for(int i=0;i<ledsLit;i++) {
-        ring.setPixelColor(i, ring.Color(r,g,b));
-      }
+  {
+    float litPixels = progress * NUMPIXELS;
 
-      break;
+    int fullPixels = (int)litPixels;
+
+    float partial = litPixels - fullPixels;
+
+    for(int i=0; i<fullPixels; i++) {
+      ring.setPixelColor(i, ring.Color(r,g,b));
+    }
+
+    if(fullPixels < NUMPIXELS) {
+
+      ring.setPixelColor(
+        fullPixels,
+        ring.Color(
+          r * partial,
+          g * partial,
+          b * partial
+        )
+      );
+    }
+  }
+
+  break;
 
     //////////////////////////////////////////////////////
     // HOLD : FULL RING
@@ -435,24 +537,40 @@ void updateNeoPixels() {
     //////////////////////////////////////////////////////
     // EXHALE : EMPTY RING
     //////////////////////////////////////////////////////
-    case BREATH_OUT:
+        case BREATH_OUT:
 
-      elapsed = millis() - breathTimer;
+  progress =
+    (float)(millis() - breathTimer) /
+    exhaleTime;
 
-      ledsLit =
-        map(
-          elapsed,
-          0,
-          exhaleTime,
-          NUMPIXELS,
-          0
-        );
+  progress = constrain(progress, 0.0, 1.0);
 
-      for(int i=0;i<ledsLit;i++) {
-        ring.setPixelColor(i, ring.Color(r,g,b));
-      }
+  {
+    float litPixels =
+      NUMPIXELS * (1.0 - progress);
 
-      break;
+    int fullPixels = (int)litPixels;
+
+    float partial = litPixels - fullPixels;
+
+    for(int i=0; i<fullPixels; i++) {
+      ring.setPixelColor(i, ring.Color(r,g,b));
+    }
+
+    if(fullPixels < NUMPIXELS) {
+
+      ring.setPixelColor(
+        fullPixels,
+        ring.Color(
+          r * partial,
+          g * partial,
+          b * partial
+        )
+      );
+    }
+  }
+
+  break;
   }
 
   ring.show();

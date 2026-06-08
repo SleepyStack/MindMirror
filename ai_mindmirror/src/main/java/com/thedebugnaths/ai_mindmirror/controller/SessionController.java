@@ -1,5 +1,6 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
+import com.thedebugnaths.ai_mindmirror.dto.SessionHistoryResponse;
 import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
@@ -34,7 +35,7 @@ public class SessionController {
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<SessionHistory>> getHistory(Authentication authentication) {
+    public ResponseEntity<List<SessionHistoryResponse>> getHistory(Authentication authentication) {
         String userEmail = authentication.getName();
         return ResponseEntity.ok(sessionService.getUserDashboardHistory(userEmail));
     }

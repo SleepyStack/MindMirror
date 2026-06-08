@@ -6,14 +6,25 @@ import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 @Service
 public class TrugenAgentService {
 
@@ -26,6 +37,17 @@ public class TrugenAgentService {
 
     @Value("${webhook.secret.token}")
     private String webhookSecret;
+
+    // Thread-safe memory cache for dynamic Knowledge Base IDs
+    private final AtomicReference<String> coreKbId = new AtomicReference<>(null);
+    private final AtomicReference<String> behavioralKbId = new AtomicReference<>(null);
+
+    // Dynamic classpath resource injectors for KB contents
+    @Value("classpath:core-persona.txt")
+    private Resource corePersonaResource;
+
+    @Value("classpath:behavioral-patterns.txt")
+    private Resource behavioralPatternsResource;
 
     private static final String BASE_SYSTEM_PROMPT = """
         You are MindMirror.
@@ -113,6 +135,43 @@ public class TrugenAgentService {
                 .build();
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void initializeKnowledgeBases() {
+        log.info("Initializing dynamic Knowledge Bases with Trugen cluster...");
+        try {
+            String coreText = corePersonaResource.getContentAsString(StandardCharsets.UTF_8);
+            String behavioralText = behavioralPatternsResource.getContentAsString(StandardCharsets.UTF_8);
+
+            String cId = createKbOnCluster("Mind Mirror Core Persona", "Core rules and identity constraints.", coreText);
+            String bId = createKbOnCluster("Mind Mirror Behavioral Patterns", "Grounding techniques and CBT templates.", behavioralText);
+
+            coreKbId.set(cId);
+            behavioralKbId.set(bId);
+            log.info("Knowledge Bases successfully bound. Core ID: {} | Behavior ID: {}", cId, bId);
+        } catch (Exception e) {
+            log.warn("Knowledge Base setup failed. Sessions will degrade gracefully. Reason: {}", e.getMessage());
+        }
+    }
+
+    private String createKbOnCluster(String name, String description, String text) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add("name", name);
+        formData.add("description", description);
+        formData.add("text", text);
+
+        TrugenKbResponse response = restClient.post()
+                .uri("/kb")
+                .header("Content-Type", "multipart/form-data")
+                .body(formData)
+                .retrieve()
+                .body(TrugenKbResponse.class);
+
+        if (response != null && response.id() != null) {
+            return response.id();
+        }
+        throw new RuntimeException("Unparseable or empty Knowledge Base payload returned.");
+    }
+
     public AgentProvisionResult createEphemeralAgentForUser(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -140,26 +199,28 @@ public class TrugenAgentService {
                 if (oldSession.getEmotionEnd() != null && !oldSession.getEmotionEnd().equals("Neutral")) {
                     promptBuilder.append("  User Left Feeling: ").append(oldSession.getEmotionEnd()).append("\n");
                 }
-
                 promptBuilder.append("\n");
             }
         }
         promptBuilder.append(SYSTEM_PROMPT_FOOTER);
         String compiledPrompt = promptBuilder.toString();
 
-        // 1. Provision the Tool dynamically
         String toolId = provisionSessionSummaryTool(userId);
-
         String dynamicCallbackUrl = String.format("%s/api/webhook/trugen?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
+
+        List<KnowledgeBaseRef> dynamicKbRefs = new ArrayList<>();
+        if (coreKbId.get() != null) {
+            dynamicKbRefs.add(new KnowledgeBaseRef(coreKbId.get(), "Mind Mirror Core KB"));
+        }
+        if (behavioralKbId.get() != null) {
+            dynamicKbRefs.add(new KnowledgeBaseRef(behavioralKbId.get(), "Mind Mirror Behavioral Patterns"));
+        }
 
         TrugenAgentRequest requestBody = new TrugenAgentRequest(
                 "Mind Mirror Session - User " + userId,
                 compiledPrompt,
                 new AgentConfig(240, new MemoryConfig(false, "")),
-                List.of(
-                        new KnowledgeBaseRef("594ee92c-8620-42c8-b949-525c93704885", "Mind Mirror Core KB"),
-                        new KnowledgeBaseRef("77952c92-09c2-4c51-92f2-41e44be2c1ae", "Mind Mirror Behavioral Patterns")
-                ),
+                dynamicKbRefs,
                 true,
                 dynamicCallbackUrl,
                 List.of("participant_left"),
@@ -182,7 +243,6 @@ public class TrugenAgentService {
                 List.of(new TrugenToolReference(toolId, "save_session_summary"))
         );
 
-        // 2. Provision the Agent
         Map<String, Object> response = restClient.post()
                 .uri("/agent")
                 .body(requestBody)
@@ -190,8 +250,7 @@ public class TrugenAgentService {
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
         if (response != null && response.containsKey("id")) {
-            String agentId = response.get("id").toString();
-            return new AgentProvisionResult(agentId, toolId); // Return both for state tracking!
+            return new AgentProvisionResult(response.get("id").toString(), toolId);
         }
 
         throw new RuntimeException("Failed to retrieve operational agent ID from Trugen cluster.");
@@ -241,18 +300,46 @@ public class TrugenAgentService {
         throw new RuntimeException("Failed to register dynamic tool definitions with Trugen cluster.");
     }
 
-    // --- CLEANUP EXECUTION METHODS ---
     public void deleteAgent(String agentId) {
         try {
             restClient.delete().uri("/agent/" + agentId).retrieve().toBodilessEntity();
-            System.out.println("Cleaned up Trugen Agent: " + agentId);
-        } catch (Exception e) { System.err.println("Cleanup failed for agent " + agentId); }
+            log.info("Cleaned up Trugen Agent: {}", agentId);
+        } catch (Exception e) {
+            log.error("Cleanup failed for agent {}", agentId);
+        }
     }
 
     public void deleteTool(String toolId) {
         try {
             restClient.delete().uri("/tool/" + toolId).retrieve().toBodilessEntity();
-            System.out.println("Cleaned up Trugen Tool: " + toolId);
-        } catch (Exception e) { System.err.println("Cleanup failed for tool " + toolId); }
+            log.info("Cleaned up Trugen Tool: {}", toolId);
+        } catch (Exception e) {
+            log.error("Cleanup failed for tool {}", toolId);
+        }
+
+    }
+
+    public void deleteKbFromCluster(String kbId) {
+        try {
+            restClient.delete()
+                    .uri("/kb/{id}", kbId)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Successfully deleted Knowledge Base: {}", kbId);
+        } catch (Exception e) {
+            log.error("Failed to delete Knowledge Base {}: {}", kbId, e.getMessage());
+            throw new RuntimeException("Could not delete KB from Trugen cluster.");
+        }
+    }
+    @PreDestroy
+    public void cleanupOnShutdown() {
+        log.info("App shutting down. Cleaning up dynamic Knowledge Bases...");
+
+        if (coreKbId.get() != null) {
+            deleteKbFromCluster(coreKbId.get());
+        }
+        if (behavioralKbId.get() != null) {
+            deleteKbFromCluster(behavioralKbId.get());
+        }
     }
 }

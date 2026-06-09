@@ -1,6 +1,7 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
 import com.thedebugnaths.ai_mindmirror.auth.SecurityUserDto;
+import com.thedebugnaths.ai_mindmirror.dto.TranscriptResponseDto;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenConversationResponse;
 import com.thedebugnaths.ai_mindmirror.service.TranscriptService;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +22,9 @@ public class TranscriptController {
      * Retrieves a single transcript by conversation ID.
      */
     @GetMapping("/{conversationId}")
-    public ResponseEntity<TrugenConversationResponse> getTranscript(@PathVariable String conversationId) {
-        TrugenConversationResponse transcriptPayload = transcriptService.getTranscriptByConversationId(conversationId);
-        return ResponseEntity.ok(transcriptPayload);
+    public ResponseEntity<TranscriptResponseDto> getTranscript(@PathVariable String conversationId) {
+        TranscriptResponseDto response = transcriptService.getTranscriptDetails(conversationId);
+        return ResponseEntity.ok(response);
     }
 
     /**

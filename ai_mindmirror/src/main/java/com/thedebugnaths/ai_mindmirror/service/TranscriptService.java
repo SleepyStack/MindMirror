@@ -1,5 +1,6 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
+import com.thedebugnaths.ai_mindmirror.dto.TranscriptResponseDto;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenConversationResponse;
 import com.thedebugnaths.ai_mindmirror.entity.SyncStatus;
 import com.thedebugnaths.ai_mindmirror.entity.Transcript;
@@ -65,5 +66,18 @@ public class TranscriptService {
                 .stream()
                 .map(Transcript::getPayload) // Extracts the JSONB payload
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public TranscriptResponseDto getTranscriptDetails(String conversationId) {
+        Transcript transcript = transcriptRepository.findByConversationId(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transcript record not found for: " + conversationId));
+
+        // Returns the status alongside the payload (which will be null if PENDING)
+        return new TranscriptResponseDto(
+                transcript.getConversationId(),
+                transcript.getSyncStatus(),
+                transcript.getPayload()
+        );
     }
 }

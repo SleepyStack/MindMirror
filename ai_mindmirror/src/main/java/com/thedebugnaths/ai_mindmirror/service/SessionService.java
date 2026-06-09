@@ -62,18 +62,12 @@ public class SessionService {
             trugenAgentService.deleteTool(activeSession.getToolId());
         }
 
-        // 2. Map conversation identity and fire off the JSONB transcript sync instantly
+        // 2. Map conversation id
         if (payload != null && payload.conversationId() != null) {
             String conversationId = payload.conversationId();
             activeSession.setConversationId(conversationId);
+            transcriptService.registerPendingTranscript(conversationId, userId);
             System.out.println("Saved conversation ID: " + conversationId);
-
-            try {
-                // Fetch full logs and persist natively as JSONB to Postgres
-                transcriptService.fetchAndSaveTranscript(conversationId, userId);
-            } catch (Exception e) {
-                System.err.println("[SESSION-SERVICE] Transcript archiving encountered a non-blocking fault: " + e.getMessage());
-            }
         }
 
         activeSession.setStatus("COMPLETED");

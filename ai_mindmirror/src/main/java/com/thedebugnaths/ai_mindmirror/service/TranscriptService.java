@@ -1,6 +1,7 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenConversationResponse;
+import com.thedebugnaths.ai_mindmirror.entity.SyncStatus;
 import com.thedebugnaths.ai_mindmirror.entity.Transcript;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.TranscriptRepository;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+
+import java.util.List;
 
 @Service
 public class TranscriptService {
@@ -25,35 +28,13 @@ public class TranscriptService {
                 .defaultHeader("x-api-key", trugenKey)
                 .build();
     }
-
-    /**
-     * Fetches the complete conversation transcript from Trugen and persists it natively as JSONB.
-     */
     @Transactional
-    public TrugenConversationResponse fetchAndSaveTranscript(String conversationId, Long userId) {
-        try {
-            TrugenConversationResponse payload = trugenClient.get()
-                    .uri("/conversation/" + conversationId)
-                    .retrieve()
-                    .body(TrugenConversationResponse.class);
-
-            if (payload == null || payload.id() == null) {
-                throw new RuntimeException("Received an empty or unparseable payload from Trugen.");
-            }
-
-            Transcript transcriptEntity = new Transcript(payload.id(), userId, payload);
-            transcriptRepository.save(transcriptEntity);
-
-            System.out.println("Transcript saved: " + conversationId);
-
-            return payload;
-
-        } catch (Exception e) {
-            System.err.println("Transcript sync failed for " + conversationId + ": " + e.getMessage());
-            throw new RuntimeException("Transcript synchronization failed.", e);
-        }
+    public void registerPendingTranscript(String conversationId, Long userId) {
+        // Save a placeholder record with null payload and PENDING status
+        Transcript pendingTranscript = new Transcript(conversationId, userId, null, SyncStatus.PENDING);
+        transcriptRepository.save(pendingTranscript);
+        System.out.println("Registered pending transcript for background sync: " + conversationId);
     }
-
     /**
      * Fetches a locally stored JSONB transcript from the PostgreSQL database by its unique conversation ID.
      */
@@ -63,5 +44,26 @@ public class TranscriptService {
                 .orElseThrow(() -> new ResourceNotFoundException("Transcript not found for conversation: " + conversationId));
 
         return transcript.getPayload();
+    }
+    /**
+     * Fetches all completed transcripts for a user to display on their dashboard.
+     */
+    @Transactional(readOnly = true)
+    public List<TrugenConversationResponse> getAllCompletedTranscriptsForUser(Long userId) {
+        return transcriptRepository.findAllByUserIdAndSyncStatusOrderByCreatedAtDesc(userId, SyncStatus.COMPLETED)
+                .stream()
+                .map(Transcript::getPayload)
+                .toList();
+    }
+
+    /**
+     * Fetches the 3 most recent, fully synced transcripts for the Weekly LLM Summary generation.
+     */
+    @Transactional(readOnly = true)
+    public List<TrugenConversationResponse> getLastThreeCompletedTranscripts(Long userId) {
+        return transcriptRepository.findTop3ByUserIdAndSyncStatusOrderByCreatedAtDesc(userId, SyncStatus.COMPLETED)
+                .stream()
+                .map(Transcript::getPayload) // Extracts the JSONB payload
+                .toList();
     }
 }

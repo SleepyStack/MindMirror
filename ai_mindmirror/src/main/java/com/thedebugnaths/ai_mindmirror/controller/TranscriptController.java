@@ -1,13 +1,14 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
+import com.thedebugnaths.ai_mindmirror.auth.SecurityUserDto;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenConversationResponse;
 import com.thedebugnaths.ai_mindmirror.service.TranscriptService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/transcripts")
@@ -17,11 +18,32 @@ public class TranscriptController {
     private final TranscriptService transcriptService;
 
     /**
-     * Retrieves the raw or structural JSONB conversation history for a completed avatar session.
+     * Retrieves a single transcript by conversation ID.
      */
     @GetMapping("/{conversationId}")
     public ResponseEntity<TrugenConversationResponse> getTranscript(@PathVariable String conversationId) {
         TrugenConversationResponse transcriptPayload = transcriptService.getTranscriptByConversationId(conversationId);
         return ResponseEntity.ok(transcriptPayload);
+    }
+
+    /**
+     * Retrieves all completed transcripts for the currently authenticated user via JWT.
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<TrugenConversationResponse>> getAllUserTranscripts(
+            @AuthenticationPrincipal SecurityUserDto principal) {
+        // Safely extracts the native database User object ID from your custom wrapper
+        Long userId = principal.getUser().getId();
+        return ResponseEntity.ok(transcriptService.getAllCompletedTranscriptsForUser(userId));
+    }
+
+    /**
+     * Retrieves the 3 most recent transcripts for the authenticated user for LLM processing.
+     */
+    @GetMapping("/recent-three")
+    public ResponseEntity<List<TrugenConversationResponse>> getRecentThreeForSummary(
+            @AuthenticationPrincipal SecurityUserDto principal) {
+        Long userId = principal.getUser().getId();
+        return ResponseEntity.ok(transcriptService.getLastThreeCompletedTranscripts(userId));
     }
 }

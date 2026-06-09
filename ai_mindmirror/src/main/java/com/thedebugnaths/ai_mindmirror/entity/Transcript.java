@@ -29,9 +29,20 @@ public class Transcript {
     @Column(name = "created_at", updatable = false)
     private Instant createdAt = Instant.now();
 
-    public Transcript(String conversationId, Long userId, TrugenConversationResponse payload) {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sync_status", nullable = false)
+    private SyncStatus syncStatus = SyncStatus.PENDING;
+
+    public Transcript(String conversationId, Long userId, TrugenConversationResponse payload, SyncStatus syncStatus) {
         this.conversationId = conversationId;
         this.userId = userId;
         this.payload = payload;
+        this.syncStatus = syncStatus;
+    }
+    public void setPayload(TrugenConversationResponse payload) {
+        this.payload = payload;
+    }
+    public void setSyncStatus(SyncStatus syncStatus) {
+        this.syncStatus = syncStatus;
     }
 }

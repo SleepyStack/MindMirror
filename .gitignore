@@ -1,84 +1,52 @@
 # =========================
-# Java / Maven
+# General
+# =========================
+HELP.md
+*.log
+.DS_Store
+Thumbs.db
+
+# =========================
+# Maven / Java
 # =========================
 target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
+.mvn/wrapper/maven-wrapper.jar
 
-# Maven Wrapper JAR (keep wrapper scripts)
-!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
 # =========================
-# Spring Boot
+# Spring Tool Suite (STS)
 # =========================
-application-local.yml
-application-local.yaml
-application-local.properties
-
-application-dev.yml
-application-dev.yaml
-application-dev.properties
-
-application-prod.yml
-application-prod.yaml
-application-prod.properties
-
-spring.log
-
-# =========================
-# Environment Files
-# =========================
-.env
-.env.*
-!.env.example
-
-# =========================
-# Secrets / Credentials
-# =========================
-*.pem
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
-*.crt
-*.cer
-*.csr
-
-secrets/
-credentials/
-private/
-
-# =========================
-# Logs
-# =========================
-logs/
-*.log
-*.out
-*.err
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
 
 # =========================
 # IntelliJ IDEA
 # =========================
 .idea/
+*.iws
 *.iml
 *.ipr
-*.iws
-
 out/
 
-# IntelliJ caches
-.idea_modules/
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
+# =========================
+# NetBeans
+# =========================
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+!**/src/main/**/build/
+!**/src/test/**/build/
 
 # =========================
 # VS Code
@@ -86,83 +54,48 @@ out/
 .vscode/
 
 # =========================
-# Eclipse
+# React / Vite
 # =========================
-.project
-.classpath
-.settings/
-.factorypath
-
-# =========================
-# NetBeans
-# =========================
-nbproject/private/
-build/
+node_modules/
 dist/
-nbdist/
-.nb-gradle/
+dist-ssr/
+.vite/
 
-# =========================
-# Java Compiled Files
-# =========================
-*.class
-*.jar
-*.war
-*.ear
+# Environment files
+.env
+.env.*
+!.env.example
 
-# Uncomment if you do NOT want to version jars
-# *.jar
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# =========================
-# OS Files
-# =========================
-.DS_Store
-Thumbs.db
-Desktop.ini
+# Package manager directories
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# =========================
-# Temporary Files
-# =========================
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
+# TypeScript
+*.tsbuildinfo
 
-# =========================
-# Test Coverage
-# =========================
+# Coverage
 coverage/
-jacoco.exec
-jacoco/
-surefire-reports/
-failsafe-reports/
 
-# =========================
-# Archives
-# =========================
-*.zip
-*.tar
-*.tar.gz
-*.rar
-*.7z
-
-# =========================
-# Local Database Files
-# =========================
-*.db
-*.sqlite
-*.sqlite3
-*.mv.db
-*.h2.db
-
-# =========================
-# Docker Overrides
-# =========================
-docker-compose.override.yml
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
 
 # =========================
 # Misc
 # =========================
-hs_err_pid*
-replay_pid*
+tmp/
+temp/
+*.swp
+*.swo

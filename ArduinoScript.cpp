@@ -32,7 +32,8 @@ enum Emotion {
   CALM,
   SAD,
   ANXIOUS,
-  DEPRESSED
+  DEPRESSED,
+  BREATH
 };
 
 Emotion currentEmotion = NEUTRAL;
@@ -69,7 +70,7 @@ void setup() {
   digitalWrite(EXHALE_PIN, LOW);
 
   ring.begin();
-  ring.setBrightness(100);
+  ring.setBrightness(50);
   ring.show();
 
   if (!display.begin(OLED_ADDR, true)) {
@@ -134,19 +135,18 @@ void readSerial() {
   else if (cmd == "depressed")
     currentEmotion = DEPRESSED;
 
+  else if (cmd == "breath")
+    currentEmotion = BREATH;
+
   else
     currentEmotion = NEUTRAL;
 
   // entering breathing mode?
   if (!(
-        previousEmotion == SAD ||
-        previousEmotion == ANXIOUS ||
-        previousEmotion == DEPRESSED
+        previousEmotion == BREATH 
       ) &&
       (
-        currentEmotion == SAD ||
-        currentEmotion == ANXIOUS ||
-        currentEmotion == DEPRESSED
+        currentEmotion == BREATH
       )) {
     breathCycles = 0;
     breathingFinished = false;
@@ -179,9 +179,7 @@ void updateBlink() {
 
 bool breathingMode() {
 
-  return currentEmotion == SAD ||
-         currentEmotion == ANXIOUS ||
-         currentEmotion == DEPRESSED;
+  return currentEmotion == BREATH;
 }
 
 void updateBreathing() {
@@ -303,33 +301,6 @@ void drawFace() {
   return;
 }
 
-  if (breathingMode()) {
-
-    display.setCursor(20,0);
-    display.setTextSize(1);
-
-    switch (breathState) {
-
-      case BREATH_IN:
-        display.setTextSize(2);
-        display.setCursor(42,0);
-        display.print("IN");
-        break;
-
-      case BREATH_HOLD:
-        display.setTextSize(2);
-        display.setCursor(32,0);
-        display.print("HOLD");
-        break;
-
-      case BREATH_OUT:
-        display.setTextSize(2);
-        display.setCursor(35,0);
-        display.print("OUT");
-        break;
-    }
-  }
-
   display.drawRoundRect(20,2,88,60,10,SH110X_WHITE);
 
   switch(currentEmotion) {
@@ -417,6 +388,12 @@ void updateNeoPixels() {
     targetR=255;
     targetG=180;
     targetB=0;
+    break;
+
+  case BREATH:
+    targetR = 255;
+    targetG = 165;
+    targetB = 0;
     break;
 
   case CALM:

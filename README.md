@@ -942,9 +942,9 @@ MindMirror is licensed under the **GNU General Public License v3.0**. See the [L
 ## Authors & Contributors
 
 **Core Team**:
-- **Chirag** – Backend architecture, TRUGEN integration, agent orchestration
-- **Rishi Khurana** – Arduino firmware, hardware integration, breathing mechanics
-- **Maulik Umari** – Full-stack development, database design
+- **Chirag ** – Backend architecture, TRUGEN integration, agent orchestration
+- **Rishi Kukreti** – Arduino firmware, hardware integration, breathing mechanics
+- **Mauli Kumari** – Full-stack development, database design
 
 **Contributions** from the open-source community are welcome!
 

@@ -4,6 +4,7 @@ import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenConversationResponse;
 import com.thedebugnaths.ai_mindmirror.entity.SyncStatus;
 import com.thedebugnaths.ai_mindmirror.entity.Transcript;
 import com.thedebugnaths.ai_mindmirror.repository.TranscriptRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class TranscriptCronWorker {
 
@@ -39,7 +41,7 @@ public class TranscriptCronWorker {
             return;
         }
 
-        System.out.println("Cron Job executing: Found " + pendingTranscripts.size() + " pending transcripts.");
+        log.info("Cron Job executing: Found {} pending transcripts.", pendingTranscripts.size());
 
         for (Transcript transcript : pendingTranscripts) {
             try {
@@ -53,13 +55,13 @@ public class TranscriptCronWorker {
                     transcript.setPayload(payload);
                     transcript.setSyncStatus(SyncStatus.COMPLETED);
                     transcriptRepository.save(transcript);
-                    System.out.println("Successfully synced transcript: " + transcript.getConversationId());
+                    log.info("Successfully synced transcript: {}", transcript.getConversationId());
                 } else {
-                    System.out.println("Transcript still processing on Trugen's end for: " + transcript.getConversationId());
+                    log.info("Transcript still processing on Trugen's end for: {}", transcript.getConversationId());
                 }
 
             } catch (Exception e) {
-                System.err.println("Polling failed for " + transcript.getConversationId() + ": " + e.getMessage());
+                log.error("Polling failed for {}: {}", transcript.getConversationId(), e.getMessage());
             }
         }
     }

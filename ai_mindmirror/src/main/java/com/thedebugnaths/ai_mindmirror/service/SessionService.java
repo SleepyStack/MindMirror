@@ -10,10 +10,13 @@ import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.SessionHistoryRepository;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionService {
@@ -32,7 +35,12 @@ public class SessionService {
         SessionHistory activeSession = new SessionHistory();
         activeSession.setUser(user);
         activeSession.setAgentId(result.agentId());
-        activeSession.setToolId(result.toolId());
+
+        // HACKATHON TRICK: Join the List of tool IDs into a single string to avoid DB schema migrations
+        if (result.toolIds() != null && !result.toolIds().isEmpty()) {
+            activeSession.setToolId(String.join(",", result.toolIds()));
+        }
+
         activeSession.setStatus("ACTIVE");
         sessionHistoryRepository.save(activeSession);
 
@@ -48,18 +56,21 @@ public class SessionService {
                 .orElse(null);
 
         if (activeSession == null) {
-            System.out.println("No active session found to terminate for user: " + userId);
+            log.info("No active session found to terminate for user: {}", userId);
             return;
         }
 
-        System.out.println("Executing cloud asset cleanup for User ID: " + userId);
+        log.info("Executing cloud asset cleanup for User ID: {}", userId);
 
         // 1. Clean up ephemeral remote infrastructure resources
         if (activeSession.getAgentId() != null) {
             trugenAgentService.deleteAgent(activeSession.getAgentId());
         }
-        if (activeSession.getToolId() != null) {
-            trugenAgentService.deleteTool(activeSession.getToolId());
+
+        if (activeSession.getToolId() != null && !activeSession.getToolId().isBlank()) {
+            // Split the stored comma-separated string back into a List for the cleanup method
+            List<String> toolsToClean = Arrays.asList(activeSession.getToolId().split(","));
+            trugenAgentService.deleteTools(toolsToClean);
         }
 
         // 2. Map conversation id
@@ -67,7 +78,7 @@ public class SessionService {
             String conversationId = payload.conversationId();
             activeSession.setConversationId(conversationId);
             transcriptService.registerPendingTranscript(conversationId, userId);
-            System.out.println("Saved conversation ID: " + conversationId);
+            log.info("Saved conversation ID: {}", conversationId);
         }
 
         activeSession.setStatus("COMPLETED");
@@ -78,7 +89,7 @@ public class SessionService {
         }
 
         sessionHistoryRepository.save(activeSession);
-        System.out.println("Session closed successfully in database.");
+        log.info("Session closed successfully in database.");
     }
 
     public void saveSessionWebhook(Long userId, TrugenWebhookRequest payload) {

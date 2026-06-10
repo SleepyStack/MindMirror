@@ -6,6 +6,7 @@ import com.thedebugnaths.ai_mindmirror.entity.SyncStatus;
 import com.thedebugnaths.ai_mindmirror.entity.Transcript;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.TranscriptRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class TranscriptService {
 
@@ -34,7 +36,7 @@ public class TranscriptService {
         // Save a placeholder record with null payload and PENDING status
         Transcript pendingTranscript = new Transcript(conversationId, userId, null, SyncStatus.PENDING);
         transcriptRepository.save(pendingTranscript);
-        System.out.println("Registered pending transcript for background sync: " + conversationId);
+        log.info("Registered pending transcript for background sync: {}", conversationId);
     }
     /**
      * Fetches a locally stored JSONB transcript from the PostgreSQL database by its unique conversation ID.

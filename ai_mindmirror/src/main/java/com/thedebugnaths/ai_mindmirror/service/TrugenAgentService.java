@@ -106,6 +106,12 @@ public class TrugenAgentService {
         
         ### Guide
         Offer one small next step. Never overwhelm the user with multiple exercises.
+        
+        ### Environment & Exercises
+        You have the ability to trigger physical exercises and environment changes via tools.
+        1. Emotion Tracking: Use the `update_ambient_lighting` toowl silently whenever you detect a shift in the user's core emotion (happy, calm, sad, anxious, depressed). Do NOT announce that you are doing this. Just trigger it in the background.
+        2. Breathing Exercises: If the user is overwhelmed, anxious, or explicitly asks to calm down, you must use the `start_breathing_exercise` tool.
+        CRITICAL RULE: Before triggering the breathing tool, you MUST say: "Let's take a deep breath together. Follow the rhythm." Then trigger the tool and stay completely silent until the sequence is finished.
         """;
 
     private static final String SYSTEM_PROMPT_FOOTER = """
@@ -212,7 +218,11 @@ public class TrugenAgentService {
         promptBuilder.append(SYSTEM_PROMPT_FOOTER);
         String compiledPrompt = promptBuilder.toString();
 
-        String toolId = provisionSessionSummaryTool(userId);
+        // Dynamically provision all 3 tools
+        String summaryToolId = provisionSessionSummaryTool(userId);
+        String emotionToolId = provisionEmotionTool(userId);
+        String breathingToolId = provisionBreathingTool(userId);
+
         String dynamicCallbackUrl = String.format("%s/api/webhook/trugen?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
 
         List<KnowledgeBaseRef> dynamicKbRefs = new ArrayList<>();
@@ -247,7 +257,12 @@ public class TrugenAgentService {
                         new MessageGroup(300, List.of("Our session has wrapped up. Take care of yourself!")),
                         new MessageGroup(10, List.of("We are wrapping things up shortly."))
                 )),
-                List.of(new TrugenToolReference(toolId, "save_session_summary"))
+                // Pass all three tools into the agent configuration
+                List.of(
+                        new TrugenToolReference(summaryToolId, "save_session_summary"),
+                        new TrugenToolReference(emotionToolId, "update_ambient_lighting"),
+                        new TrugenToolReference(breathingToolId, "start_breathing_exercise")
+                )
         );
 
         Map<String, Object> response = restClient.post()
@@ -257,7 +272,11 @@ public class TrugenAgentService {
                 .body(new ParameterizedTypeReference<Map<String, Object>>() {});
 
         if (response != null && response.containsKey("id")) {
-            return new AgentProvisionResult(response.get("id").toString(), toolId);
+            // Return the agent ID along with the list of ALL generated tool IDs
+            return new AgentProvisionResult(
+                    response.get("id").toString(),
+                    List.of(summaryToolId, emotionToolId, breathingToolId)
+            );
         }
 
         throw new RuntimeException("Failed to retrieve operational agent ID from Trugen cluster.");
@@ -307,6 +326,77 @@ public class TrugenAgentService {
         throw new RuntimeException("Failed to register dynamic tool definitions with Trugen cluster.");
     }
 
+    private String provisionEmotionTool(Long userId) {
+        Map<String, Object> parameters = Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "emotion", Map.of(
+                                "type", "string",
+                                "enum", List.of("happy", "calm", "sad", "anxious", "depressed"),
+                                "description", "The detected emotion."
+                        )
+                ),
+                "required", List.of("emotion")
+        );
+
+        ToolSchema schema = new ToolSchema(
+                "function",
+                "update_ambient_lighting",
+                "Called silently to update the physical room lighting when the user's emotion changes.",
+                parameters
+        );
+        String executionUrl = String.format("%s/api/webhook/trugen/emotion?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
+        RequestConfig requestConfig = new RequestConfig("POST", executionUrl, Map.of("Content-Type", "application/json", "X-Webhook-Secret", webhookSecret));
+
+        TrugenToolCreateRequest toolPayload = new TrugenToolCreateRequest(
+                "tool.api",
+                schema,
+                requestConfig,
+                Map.of(
+                        "on_start", Map.of("message", "Adjusting environment..."),
+                        "on_success", Map.of("message", "[SYSTEM: Environment updated silently. Continue conversation normally.]")
+                )
+        );
+
+        Map<String, Object> toolResponse = restClient.post().uri("/tool").body(toolPayload).retrieve().body(new ParameterizedTypeReference<Map<String, Object>>() {});
+        if (toolResponse != null && toolResponse.containsKey("id")) {
+            return toolResponse.get("id").toString();
+        }
+        throw new RuntimeException("Failed to register dynamic emotion tool with Trugen cluster.");
+    }
+
+    private String provisionBreathingTool(Long userId) {
+        Map<String, Object> parameters = Map.of(
+                "type", "object",
+                "properties", Map.of()
+        );
+
+        ToolSchema schema = new ToolSchema(
+                "function",
+                "start_breathing_exercise",
+                "Called to activate the physical breathing sequence.",
+                parameters
+        );
+        String executionUrl = String.format("%s/api/webhook/trugen/breathe?userId=%d&secret=%s", baseWebhookUrl, userId, webhookSecret);
+        RequestConfig requestConfig = new RequestConfig("POST", executionUrl, Map.of("Content-Type", "application/json", "X-Webhook-Secret", webhookSecret));
+
+        TrugenToolCreateRequest toolPayload = new TrugenToolCreateRequest(
+                "tool.api",
+                schema,
+                requestConfig,
+                Map.of(
+                        "on_start", Map.of("message", "Starting hardware sequence..."),
+                        "on_success", Map.of("message", "[SYSTEM: Exercise sequence activated. The user is currently breathing. DO NOT SPEAK. Remain completely silent until the user speaks to you again.]")
+                )
+        );
+
+        Map<String, Object> toolResponse = restClient.post().uri("/tool").body(toolPayload).retrieve().body(new ParameterizedTypeReference<Map<String, Object>>() {});
+        if (toolResponse != null && toolResponse.containsKey("id")) {
+            return toolResponse.get("id").toString();
+        }
+        throw new RuntimeException("Failed to register dynamic breathing tool with Trugen cluster.");
+    }
+
     public void deleteAgent(String agentId) {
         try {
             restClient.delete().uri("/agent/" + agentId).retrieve().toBodilessEntity();
@@ -316,14 +406,18 @@ public class TrugenAgentService {
         }
     }
 
-    public void deleteTool(String toolId) {
-        try {
-            restClient.delete().uri("/tool/" + toolId).retrieve().toBodilessEntity();
-            log.info("Cleaned up Trugen Tool: {}", toolId);
-        } catch (Exception e) {
-            log.error("Cleanup failed for tool {}", toolId);
-        }
+    // Accepts a list of tool IDs to clean up all dynamically created tools
+    public void deleteTools(List<String> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) return;
 
+        for (String toolId : toolIds) {
+            try {
+                restClient.delete().uri("/tool/" + toolId).retrieve().toBodilessEntity();
+                log.info("Cleaned up Trugen Tool: {}", toolId);
+            } catch (Exception e) {
+                log.error("Cleanup failed for tool {}", toolId);
+            }
+        }
     }
 
     public void deleteKbFromCluster(String kbId) {
@@ -338,6 +432,7 @@ public class TrugenAgentService {
             throw new RuntimeException("Could not delete KB from Trugen cluster.");
         }
     }
+
     @PreDestroy
     public void cleanupOnShutdown() {
         log.info("App shutting down. Cleaning up dynamic Knowledge Bases...");

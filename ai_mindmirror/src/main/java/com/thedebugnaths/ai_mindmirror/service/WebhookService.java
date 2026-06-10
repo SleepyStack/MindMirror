@@ -1,16 +1,21 @@
 package com.thedebugnaths.ai_mindmirror.service;
 
+import com.thedebugnaths.ai_mindmirror.dto.BreatheExerciseWebhook;
+import com.thedebugnaths.ai_mindmirror.dto.ChangeEmotionWebhook;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenLifecycleRequest;
 import com.thedebugnaths.ai_mindmirror.dto.trugen.TrugenWebhookRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WebhookService {
 
     private final SessionService sessionService;
+    private final HardwareIntegrationService hardwareService; // <-- Injected Hardware Service
 
     @Value("${webhook.secret.token}")
     private String expectedSecret;
@@ -23,7 +28,7 @@ public class WebhookService {
 
         // Check if the payload contains the participant_left event
         if (payload.event() != null && "participant_left".equals(payload.event().name())) {
-            System.out.println("Participant disconnected. Triggering delete sequence for User: " + userId);
+            log.info("Participant disconnected. Triggering delete sequence for User: {}", userId);
 
             // Pass both the userId and the lifecycle payload to extract conversationId
             sessionService.terminateSessionResources(userId, payload);
@@ -40,6 +45,28 @@ public class WebhookService {
 
         // Route directly to the session service to store the conversation analytics
         sessionService.saveSessionWebhook(userId, payload);
+        return true;
+    }
+
+    // 3. Handles Endpoint 3: Live Hardware Emotion Trigger
+    public boolean processEmotionWebhook(String incomingSecret, Long userId, ChangeEmotionWebhook payload) {
+        if (incomingSecret == null || !incomingSecret.equals(expectedSecret)) {
+            return false; // Validation failed
+        }
+
+        if (payload.parameters() != null && payload.parameters().emotion() != null) {
+            hardwareService.triggerHardwareCommand(payload.parameters().emotion());
+        }
+        return true;
+    }
+
+    // 4. Handles Endpoint 4: Live Hardware Breathing Trigger
+    public boolean processBreatheWebhook(String incomingSecret, Long userId, BreatheExerciseWebhook payload) {
+        if (incomingSecret == null || !incomingSecret.equals(expectedSecret)) {
+            return false; // Validation failed
+        }
+
+        hardwareService.triggerHardwareCommand("breathe");
         return true;
     }
 }

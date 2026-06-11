@@ -1,0 +1,454 @@
+{
+  "info": {
+    "_postman_id": "bdf6b5f0-2e20-4f1f-9f8a-6b0b7d7f1a2a",
+    "name": "MindMirror Hackathon Demo",
+    "description": "Seed the three demo users, start one AI session per user, then replay the TruGen webhook callbacks that populate session history and transcript records. Use this against a clean database if possible. For live external callbacks, set your backend APP_NGROK_URL to the public ngrok URL; the collection itself sends direct requests to the API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "publicBaseUrl",
+      "value": "https://deepness-unstuffed-trading.ngrok-free.dev"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "my_super_secret_hackathon_token_999"
+    },
+    {
+      "key": "chiragUserId",
+      "value": "1"
+    },
+    {
+      "key": "mauliUserId",
+      "value": "2"
+    },
+    {
+      "key": "rishiUserId",
+      "value": "3"
+    },
+    {
+      "key": "chiragToken",
+      "value": ""
+    },
+    {
+      "key": "mauliToken",
+      "value": ""
+    },
+    {
+      "key": "rishiToken",
+      "value": ""
+    },
+    {
+      "key": "chiragConversationId",
+      "value": "ba738d69-496b-49d3-97cd-90b0cd8f33b3"
+    },
+    {
+      "key": "chiragWebhookUrl",
+      "value": "{{publicBaseUrl}}/api/webhook/trugen?userId={{chiragUserId}}&secret={{webhookSecret}}"
+    },
+    {
+      "key": "mauliConversationId",
+      "value": "c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52"
+    },
+    {
+      "key": "mauliWebhookUrl",
+      "value": "{{publicBaseUrl}}/api/webhook/trugen?userId={{mauliUserId}}&secret={{webhookSecret}}"
+    },
+    {
+      "key": "rishiConversationId",
+      "value": "f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7"
+    },
+    {
+      "key": "rishiWebhookUrl",
+      "value": "{{publicBaseUrl}}/api/webhook/trugen?userId={{rishiUserId}}&secret={{webhookSecret}}"
+    }
+  ],
+  "item": [
+    {
+      "name": "Chirag Demo Flow",
+      "item": [
+        {
+          "name": "Register Chirag",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"Chirag\",\n  \"email\": \"chirag.mindmirror@example.com\",\n  \"password\": \"Demo@12345\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('chiragToken', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Chirag Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{chiragToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/start"
+          }
+        },
+        {
+          "name": "Chirag Session Summary Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Webhook-Secret",
+                "value": "{{webhookSecret}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"Chirag walked through presentation anxiety, then settled on a simple 3-breath reset and a one-minute opening script.\",\n  \"mainTopic\": \"Hackathon presentation confidence\",\n  \"emotionStart\": \"anxious\",\n  \"emotionEnd\": \"calm\",\n  \"actionStep\": \"Practice the opening line aloud three times before the final demo.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/webhook/trugen/tool?userId={{chiragUserId}}&secret={{webhookSecret}}"
+          }
+        },
+        {
+          "name": "Chirag Lifecycle Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": 1739301123.12,\n  \"conversation_id\": \"{{chiragConversationId}}\",\n  \"type\": \"lifecycle\",\n  \"event\": {\n    \"name\": \"participant_left\",\n    \"payload\": {\n      \"reason\": \"demo_session_complete\",\n      \"source\": \"postman_collection\"\n    }\n  }\n}"
+            },
+            "url": "{{chiragWebhookUrl}}"
+          }
+        },
+        {
+          "name": "Chirag Session History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{chiragToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/history"
+          }
+        },
+        {
+          "name": "Get Chirag Transcript",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{chiragToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/transcripts/{{chiragConversationId}}"
+          },
+          "response": [
+            {
+              "name": "Sample Chirag transcript payload",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"conversationId\": \"chirag-convo-01\",\n  \"syncStatus\": \"COMPLETED\",\n  \"payload\": {\n    \"id\": \"chirag-convo-01\",\n    \"agent_id\": \"agent-chirag-01\",\n    \"duration\": 942.4,\n    \"recording_url\": \"https://cdn.trugen.ai/demo/chirag-convo-01.mp4\",\n    \"status\": \"completed\",\n    \"transcript\": [\n      {\n        \"timestamp\": \"2026-06-11T10:00:00Z\",\n        \"role\": \"user\",\n        \"content\": \"I keep freezing when I open my demo.\",\n        \"type\": \"message\",\n        \"is_error\": false\n      },\n      {\n        \"timestamp\": \"2026-06-11T10:00:05Z\",\n        \"role\": \"assistant\",\n        \"content\": \"Start with a single sentence, then pause and breathe. You do not need to explain everything at once.\",\n        \"type\": \"message\",\n        \"is_error\": false\n      },\n      {\n        \"timestamp\": \"2026-06-11T10:01:10Z\",\n        \"role\": \"user\",\n        \"content\": \"That feels a lot more manageable.\",\n        \"type\": \"message\",\n        \"is_error\": false\n      },\n      {\n        \"timestamp\": \"2026-06-11T10:01:18Z\",\n        \"role\": \"assistant\",\n        \"content\": \"Good. Keep the opening line short, and anchor the rest of the pitch to the problem, solution, and outcome.\",\n        \"type\": \"message\",\n        \"is_error\": false\n      }\n    ]\n  }\n}"
+              "body": "{\n  \"agent_id\": \"fca8ca1c-1b72-4ab2-aee0-6c4f61c42f0c\",\n  \"agent_name\": \"Mind Mirror Session - User 1\",\n  \"avatar_id\": \"665a1170\",\n  \"context\": \"{\\\"text\\\":\\\"MindMirror Session\\\"}\",\n  \"created_at\": \"2026-06-09T14:34:28.134971Z\",\n  \"duration\": 71.26697635650635,\n  \"id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n  \"is_recorded\": true,\n  \"recording_url\": \"https://trugen-avatars.s3.us-east-2.amazonaws.com/egress/ba738d69-496b-49d3-97cd-90b0cd8f33b3/room_recording.mp4\",\n  \"status\": \"Ended\",\n  \"transcript\": [\n    {\n      \"timestamp\": \"2026-06-09T14:34:47Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Hi, I'm Mind Mirror, How are you doing today?\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 1781015687,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-09T14:35:01Z\",\n      \"role\": \"user\",\n      \"content\": \"Hey, Mind Mirror, do you remember what we talked about last time?\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 1781015701,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-09T14:35:11Z\",\n      \"role\": \"assistant\",\n      \"content\": \"I remember we just did a quick check-in and talked about how things have been feeling day-to-day. How have you been since then?\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 1781015711,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-09T14:35:22Z\",\n      \"role\": \"user\",\n      \"content\": \"Wait, I got the ghost.\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 1781015722,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:06Z\",\n      \"role\": \"user\",\n      \"content\": \"So sorry, bro. I'm leaving.\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 0,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-09T14:35:27Z\",\n      \"role\": \"assistant\",\n      \"content\": \"I hear you\u2014thanks for letting me know. Take care of yourself, and if you ever want to chat again, I\u2019m here. Bye for now.\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 1781015727,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:06Z\",\n      \"role\": \"user\",\n      \"content\": \"Talk to me, forget it. Talk to me. Yeah, that's fine. I'm sorry, bro. I'm leaving.\",\n      \"conversation_id\": \"ba738d69-496b-49d3-97cd-90b0cd8f33b3\",\n      \"message_timestamp\": 0,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    }\n  ],\n  \"updated_at\": \"2026-06-09T14:35:41.67362Z\",\n  \"user_id\": \"chirag@mindmirror.com\",\n  \"user_name\": \"Chirag\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mauli Demo Flow",
+      "item": [
+        {
+          "name": "Register Mauli",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"Mauli\",\n  \"email\": \"mauli.mindmirror@example.com\",\n  \"password\": \"Demo@12345\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('mauliToken', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Mauli Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mauliToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/start"
+          }
+        },
+        {
+          "name": "Mauli Session Summary Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Webhook-Secret",
+                "value": "{{webhookSecret}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"Mauli reworked the presentation flow into three crisp sections and agreed to practice the handoff twice with a timer.\",\n  \"mainTopic\": \"Presentation structure and pacing\",\n  \"emotionStart\": \"overloaded\",\n  \"emotionEnd\": \"focused\",\n  \"actionStep\": \"Run two timed rehearsals and cut any slide that does not support the final story.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/webhook/trugen/tool?userId={{mauliUserId}}&secret={{webhookSecret}}"
+          }
+        },
+        {
+          "name": "Mauli Lifecycle Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": 1739302123.12,\n  \"conversation_id\": \"{{mauliConversationId}}\",\n  \"type\": \"lifecycle\",\n  \"event\": {\n    \"name\": \"participant_left\",\n    \"payload\": {\n      \"reason\": \"demo_session_complete\",\n      \"source\": \"postman_collection\"\n    }\n  }\n}"
+            },
+            "url": "{{mauliWebhookUrl}}"
+          }
+        },
+        {
+          "name": "Mauli Session History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mauliToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/history"
+          }
+        },
+        {
+          "name": "Get Mauli Transcript",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mauliToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/transcripts/{{mauliConversationId}}"
+          },
+          "response": [
+            {
+              "name": "Sample Mauli transcript payload",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"agent_id\": \"3d8f5db4-8e2a-4d2d-8f0b-9f4c7a61c209\",\n  \"agent_name\": \"Mind Mirror Session - User 2\",\n  \"avatar_id\": \"665a1170\",\n  \"context\": \"{\\\"text\\\":\\\"MindMirror Session\\\"}\",\n  \"created_at\": \"2026-06-10T16:12:18.901332Z\",\n  \"duration\": 84.49231815338135,\n  \"id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n  \"is_recorded\": true,\n  \"recording_url\": \"https://trugen-avatars.s3.us-east-2.amazonaws.com/egress/c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52/room_recording.mp4\",\n  \"status\": \"Ended\",\n  \"transcript\": [\n    {\n      \"timestamp\": \"2026-06-10T16:12:41Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Hi, I'm Mind Mirror, How are you doing today?\",\n      \"conversation_id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n      \"message_timestamp\": 1780944761,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-10T16:12:55Z\",\n      \"role\": \"user\",\n      \"content\": \"I am worried the judges will ask about our charts.\",\n      \"conversation_id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n      \"message_timestamp\": 1780944775,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-10T16:13:06Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Keep the answer short: say what the chart shows, why it matters, and what changed because of it.\",\n      \"conversation_id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n      \"message_timestamp\": 1780944786,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-10T16:13:21Z\",\n      \"role\": \"user\",\n      \"content\": \"That is much easier to remember.\",\n      \"conversation_id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n      \"message_timestamp\": 1780944801,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-10T16:13:29Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Exactly. Lead with the story, not the data dump.\",\n      \"conversation_id\": \"c2a7a5f4-3b9b-4c2b-9dd1-8d9a66ef3b52\",\n      \"message_timestamp\": 1780944809,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    }\n  ],\n  \"updated_at\": \"2026-06-10T16:13:44.112701Z\",\n  \"user_id\": \"mauli@mindmirror.com\",\n  \"user_name\": \"Mauli\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rishi Demo Flow",
+      "item": [
+        {
+          "name": "Register Rishi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"Rishi\",\n  \"email\": \"rishi.mindmirror@example.com\",\n  \"password\": \"Demo@12345\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('rishiToken', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Start Rishi Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rishiToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/start"
+          }
+        },
+        {
+          "name": "Rishi Session Summary Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Webhook-Secret",
+                "value": "{{webhookSecret}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"Rishi used the session to turn burnout into a short reset plan with a focus block and a hard stop time.\",\n  \"mainTopic\": \"Hackathon fatigue management\",\n  \"emotionStart\": \"overwhelmed\",\n  \"emotionEnd\": \"steady\",\n  \"actionStep\": \"Take a 15 minute break, then work only on the next three highest value tasks.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/webhook/trugen/tool?userId={{rishiUserId}}&secret={{webhookSecret}}"
+          }
+        },
+        {
+          "name": "Rishi Lifecycle Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"timestamp\": 1739303123.12,\n  \"conversation_id\": \"{{rishiConversationId}}\",\n  \"type\": \"lifecycle\",\n  \"event\": {\n    \"name\": \"participant_left\",\n    \"payload\": {\n      \"reason\": \"demo_session_complete\",\n      \"source\": \"postman_collection\"\n    }\n  }\n}"
+            },
+            "url": "{{rishiWebhookUrl}}"
+          }
+        },
+        {
+          "name": "Rishi Session History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rishiToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/session/history"
+          }
+        },
+        {
+          "name": "Get Rishi Transcript",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{rishiToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/transcripts/{{rishiConversationId}}"
+          },
+          "response": [
+            {
+              "name": "Sample Rishi transcript payload",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"agent_id\": \"d8c2e1af-6c43-47c7-8a8f-11d47f2f4f6a\",\n  \"agent_name\": \"Mind Mirror Session - User 3\",\n  \"avatar_id\": \"665a1170\",\n  \"context\": \"{\\\"text\\\":\\\"MindMirror Session\\\"}\",\n  \"created_at\": \"2026-06-11T09:40:06.000000Z\",\n  \"duration\": 71.26697635650635,\n  \"id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n  \"is_recorded\": true,\n  \"recording_url\": \"https://trugen-avatars.s3.us-east-2.amazonaws.com/egress/f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7/room_recording.mp4\",\n  \"status\": \"Ended\",\n  \"transcript\": [\n    {\n      \"timestamp\": \"2026-06-11T09:40:06Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Hi, I'm Mind Mirror, How are you doing today?\",\n      \"conversation_id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n      \"message_timestamp\": 1781014806,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:17Z\",\n      \"role\": \"user\",\n      \"content\": \"I am running on fumes before the demo.\",\n      \"conversation_id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n      \"message_timestamp\": 1781014817,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:28Z\",\n      \"role\": \"assistant\",\n      \"content\": \"Then the move is to protect energy, not to add more work. Pick one last task and stop there.\",\n      \"conversation_id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n      \"message_timestamp\": 1781014828,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:41Z\",\n      \"role\": \"user\",\n      \"content\": \"I can do that and then rest.\",\n      \"conversation_id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n      \"message_timestamp\": 1781014841,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    },\n    {\n      \"timestamp\": \"2026-06-11T09:40:50Z\",\n      \"role\": \"assistant\",\n      \"content\": \"That is a good boundary. Keep it small and finish clean.\",\n      \"conversation_id\": \"f7e9b9e8-84dd-4b85-8e9f-4df0a1f6a9c7\",\n      \"message_timestamp\": 1781014850,\n      \"name\": \"\",\n      \"arguments\": \"\",\n      \"output\": \"\",\n      \"is_error\": false,\n      \"extra\": {},\n      \"call_id\": \"\",\n      \"type\": \"message\"\n    }\n  ],\n  \"updated_at\": \"2026-06-11T09:40:58.441102Z\",\n  \"user_id\": \"rishi@mindmirror.com\",\n  \"user_name\": \"Rishi\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

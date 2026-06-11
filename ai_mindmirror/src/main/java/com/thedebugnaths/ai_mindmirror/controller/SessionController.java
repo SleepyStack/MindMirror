@@ -1,7 +1,6 @@
 package com.thedebugnaths.ai_mindmirror.controller;
 
 import com.thedebugnaths.ai_mindmirror.dto.SessionHistoryResponse;
-import com.thedebugnaths.ai_mindmirror.entity.SessionHistory;
 import com.thedebugnaths.ai_mindmirror.entity.User;
 import com.thedebugnaths.ai_mindmirror.exception.ResourceNotFoundException;
 import com.thedebugnaths.ai_mindmirror.repository.UserRepository;
@@ -22,14 +21,17 @@ public class SessionController {
     private final SessionService sessionService;
     private final UserRepository userRepository;
 
-    @PostMapping("/start")
-    public ResponseEntity<Map<String, String>> startSession(Authentication authentication) {
+    @PostMapping("/start/{lang}")
+    public ResponseEntity<Map<String, String>> startSession(
+            @PathVariable String lang,
+            Authentication authentication) {
+
         String userEmail = authentication.getName();
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Calls the service that hits TruGen and gets the unique URL
-        String trugenUrl = sessionService.initializeTrugenSession(user.getId());
+        // Pass the language preference down to your session engine layer
+        String trugenUrl = sessionService.initializeTrugenSession(user.getId(), lang);
 
         return ResponseEntity.ok(Map.of("url", trugenUrl));
     }

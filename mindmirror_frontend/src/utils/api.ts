@@ -111,8 +111,8 @@ export function getSessionHistory(): Promise<SessionHistoryResponse[]> {
     return fetchWithAuth<SessionHistoryResponse[]>("/api/session/history");
 }
 
-export function startSession(): Promise<StartSessionResponse> {
-    return fetchWithAuth<StartSessionResponse>("/api/session/start", {
+export function startSession(lang: string = "EN"): Promise<StartSessionResponse> {
+    return fetchWithAuth<StartSessionResponse>(`/api/session/start/${lang}`, {
         method: "POST"
     });
 }

@@ -40,6 +40,7 @@ services:
       - TRUGEN_API_KEY=${TRUGEN_API_KEY}
       - WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN}
       - APP_NGROK_URL=${APP_NGROK_URL}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
 
 volumes:
   # Declares the name d volume used by Postgres

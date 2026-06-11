@@ -26,17 +26,16 @@ public class SessionService {
     private final TrugenAgentService trugenAgentService;
     private final TranscriptService transcriptService;
 
-    public String initializeTrugenSession(Long userId) {
+    public String initializeTrugenSession(Long userId, String lang) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        AgentProvisionResult result = trugenAgentService.createEphemeralAgentForUser(userId);
+        AgentProvisionResult result = trugenAgentService.createEphemeralAgentForUser(userId, lang);
 
         SessionHistory activeSession = new SessionHistory();
         activeSession.setUser(user);
         activeSession.setAgentId(result.agentId());
 
-        // HACKATHON TRICK: Join the List of tool IDs into a single string to avoid DB schema migrations
         if (result.toolIds() != null && !result.toolIds().isEmpty()) {
             activeSession.setToolId(String.join(",", result.toolIds()));
         }

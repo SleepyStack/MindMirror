@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1. The Database Service
   postgres-db:
     image: postgres:15-alpine
     container_name: mindmirror-postgres
@@ -10,38 +9,14 @@ services:
       POSTGRES_PASSWORD: 12345
       POSTGRES_DB: mindmirrordb
     ports:
-      - "5432:5432" # map to local machine
+      - "5432:5432" # This is the magic line that exposes the DB to the Legion 5
     volumes:
-      - postgres-data:/var/lib/postgresql/data # Persists DB data always
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      # Ensures Postgres is fully booted before starting the Spring App
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # 2. The Spring Boot Service
-  backend-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: mindmirror-app
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/mindmirrordb
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=12345
-      - JWT_SECRET=dpqgUlBNoisndcUjkLsab0LDSrZuL54UGX9cRTQxkys
-      - JWT_EXPIRATION=86400000
-      - TRUGEN_API_KEY=${TRUGEN_API_KEY}
-      - WEBHOOK_SECRET_TOKEN=${WEBHOOK_SECRET_TOKEN}
-      - APP_NGROK_URL=${APP_NGROK_URL}
-      - SARVAM_API_KEY=${SARVAM_API_KEY}
-
 volumes:
-  # Declares the name d volume used by Postgres
   postgres-data:

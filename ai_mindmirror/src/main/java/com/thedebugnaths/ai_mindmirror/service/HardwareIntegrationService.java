@@ -17,9 +17,7 @@ public class HardwareIntegrationService {
     private OutputStream outputStream;
     private boolean isHardwareConnected = false;
 
-    // Use application.properties to set this, e.g., arduino.port=COM3
-    @Value("${arduino.port:COM3}")
-    private String portName;
+    private String portName = "COM7";
 
     @PostConstruct
     public void init() {

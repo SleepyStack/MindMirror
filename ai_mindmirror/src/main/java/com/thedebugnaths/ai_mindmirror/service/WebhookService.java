@@ -54,8 +54,10 @@ public class WebhookService {
             return false; // Validation failed
         }
 
-        if (payload.parameters() != null && payload.parameters().emotion() != null) {
-            hardwareService.triggerHardwareCommand(payload.parameters().emotion());
+        if (payload != null && payload.emotion() != null) {
+            hardwareService.triggerHardwareCommand(payload.emotion());
+        } else {
+            log.warn("Emotion trigger received, but the emotion string was missing from the payload!");
         }
         return true;
     }
@@ -66,7 +68,7 @@ public class WebhookService {
             return false; // Validation failed
         }
 
-        hardwareService.triggerHardwareCommand("breathe");
+        hardwareService.triggerHardwareCommand("breath");
         return true;
     }
 }

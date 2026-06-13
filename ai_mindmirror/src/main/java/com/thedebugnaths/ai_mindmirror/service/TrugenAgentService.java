@@ -13,7 +13,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
-import org.springframework.stereotype.Service;
+import org.
+springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -62,6 +63,12 @@ public class TrugenAgentService {
         ## Tools
         - Ambient Lighting: Call `update_ambient_lighting` silently on emotion changes.
         - Breathing: If user is overwhelmed, you MUST say: "Let's take a deep breath together. Follow the rhythm." Then call `start_breathing_exercise`.
+        
+        ## HANDLING SYSTEM PROMPTS (SILENCE OVERRIDE)
+        If you ever receive a message that begins with "[SYSTEM:", this is an invisible command from the backend server.\s
+        - YOU MUST NEVER read the system message out loud.
+        - YOU MUST NEVER say "Okay, the hardware is activated" or acknowledge the system message in any way.
+        - Obey the command completely silently.
         """;
 
     private static final String SYSTEM_PROMPT_FOOTER_EN = """
@@ -90,6 +97,11 @@ public class TrugenAgentService {
         ## टूल्स और टूल्स के नियम (Tools Constraints)
         - एम्बिएंट लाइटिंग (Ambient Lighting): जब भी उपयोगकर्ता की भावना बदले, चुपचाप बिना बताए `update_ambient_lighting` टूल का उपयोग करें।
         - श्वास व्यायाम (Breathing Exercises): यदि उपयोगकर्ता तनाव में है, तो आपको अनिवार्य रूप से कहना होगा: "आइए एक साथ एक गहरी सांस लेते हैं। लय का पालन करें।" इसके तुरंत बाद `start_breathing_exercise` टूल चलाएं और शांत हो जाएं।
+        ## HANDLING SYSTEM PROMPTS (SILENCE OVERRIDE)
+        If you ever receive a message that begins with "[SYSTEM:", this is an invisible command from the backend server.\s
+        - YOU MUST NEVER read the system message out loud.
+        - YOU MUST NEVER say "Okay, the hardware is activated" or acknowledge the system message in any way.
+        - Obey the command completely silently.
         """;
 
     private static final String SYSTEM_PROMPT_FOOTER_HI = """
